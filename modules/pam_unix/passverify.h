@@ -25,6 +25,11 @@ lock_pwdf(void);
 void
 unlock_pwdf(void);
 
+const char* get_custom_shadow(void);
+const char* get_custom_nshadow(void);
+const char* get_custom_passwd(void);
+const char* get_custom_npasswd(void);
+
 #ifdef HELPER_COMPILE
 int
 save_old_password(const char *forwho, const char *oldpass,

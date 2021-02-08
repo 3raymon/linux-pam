@@ -101,8 +101,11 @@ typedef struct {
 #define UNIX_GOST_YESCRYPT_PASS  31     /* new password hashes will use gost-yescrypt */
 #define UNIX_YESCRYPT_PASS       32     /* new password hashes will use yescrypt */
 #define UNIX_NULLRESETOK         33     /* allow empty password if password reset is enforced */
+#define CUSTOM_SHADOW_PATH       34 /* path to custom shadow file, default=/etc/shadow */
+#define CUSTOM_PASSWD_PATH       35 /* path to custom passwd file, default=/etc/passwd */
 /* -------------- */
-#define UNIX_CTRLS_              34	/* number of ctrl arguments defined */
+#define UNIX_CTRLS_              36	/* number of ctrl arguments defined */
+
 
 #define UNIX_DES_CRYPT(ctrl)	(off(UNIX_MD5_PASS,ctrl)&&off(UNIX_BIGCRYPT,ctrl)&&off(UNIX_SHA256_PASS,ctrl)&&off(UNIX_SHA512_PASS,ctrl)&&off(UNIX_BLOWFISH_PASS,ctrl)&&off(UNIX_GOST_YESCRYPT_PASS,ctrl)&&off(UNIX_YESCRYPT_PASS,ctrl))
 
@@ -145,6 +148,8 @@ static const UNIX_Ctrls unix_args[UNIX_CTRLS_] =
 /* UNIX_GOST_YESCRYPT_PASS */  {"gost_yescrypt",    _ALL_ON_^(015660420000ULL),   04000000000, 1},
 /* UNIX_YESCRYPT_PASS */       {"yescrypt",         _ALL_ON_^(015660420000ULL),  010000000000, 1},
 /* UNIX_NULLRESETOK */         {"nullresetok",      _ALL_ON_,                    020000000000, 0},
+/* CUSTOM SHADOW PATH*/        {"shadow_path="      _ALL_ON_,                               0, 0},
+/* CUSTOM PASSWD PATH*/        {"passwd_path="      _ALL_ON_,                               0, 0},
 };
 
 #define UNIX_DEFAULTS  (unix_args[UNIX__NONULL].flag)

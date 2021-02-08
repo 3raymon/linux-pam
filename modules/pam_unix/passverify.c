@@ -6,6 +6,8 @@
 #include <security/pam_modules.h>
 #include "support.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <libgen.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -336,10 +338,68 @@ PAMH_ARG_DECL(int check_shadow_expiry,
 }
 
 /* passwd/salt conversion macros */
-
+/*
+PW_TMPFILE is just used if env custom_passwd_path is not set,
+SH_TMPFILE is just used if env custom_shadow_path is not set
+*/
 #define PW_TMPFILE              "/etc/npasswd"
 #define SH_TMPFILE              "/etc/nshadow"
 #define OPW_TMPFILE             "/etc/security/nopasswd"
+
+/**
+ * get_custom* functions
+ * do return the value of the correstponding
+ * environment variables if set, else
+ * default values are returned
+ */
+const char* get_custom_shadow(void)
+{
+	char* p_string= getenv("custom_shadow_path");
+	if (p_string != NULL) {
+		return p_string;
+	} else {
+		return "/etc/shadow"
+	}
+}
+
+const char* get_custom_nshadow(void)
+{
+	char* p_string= getenv("custom_shadow_path");
+	if (fp != NULL) {
+		char* dir = dirname(p_string);
+		char* base = basename(p_string);
+		strcat(dir, "/n");
+		strcat(dir, base);
+		return dir;
+	} else {
+		return SH_TMPFILE
+	}
+}
+
+const char* get_custom_passwd(void)
+{
+	char* p_string= getenv("custom_passwd_path");
+	if (p_string != NULL) {
+		return p_string;
+	} else {
+		return "/etc/passwd"
+	}
+}
+
+const char* get_custom_npasswd(void)
+{
+	char* p_string= getenv("custom_passwd_path");
+	if (p_string != NULL) {
+		char* dir = dirname(p_string);
+		char* base = basename(p_string);
+		strcat(dir, "/n");
+		strcat(dir, base);
+		return dir;
+	} else {
+		return PW_TMPFILE
+	}
+}
+
 
 /*
  * i64c - convert an integer to a radix 64 character
@@ -843,7 +903,7 @@ PAMH_ARG_DECL(int unix_update_passwd,
       freecon(passwd_context_raw);
     }
 #endif
-    pwfile = fopen(PW_TMPFILE, "w");
+    pwfile = fopen(get_custom_npasswd(), "w");
     umask(oldmask);
     if (pwfile == NULL) {
       err = 1;
@@ -911,7 +971,7 @@ PAMH_ARG_DECL(int unix_update_passwd,
 
 done:
     if (!err) {
-	if (!rename(PW_TMPFILE, "/etc/passwd"))
+	if (!rename(get_custom_npasswd(), get_custom_passwd()))
 	    pam_syslog(pamh,
 		LOG_NOTICE, "password changed for %s", forwho);
 	else
@@ -930,7 +990,7 @@ done:
     if (!err) {
 	return PAM_SUCCESS;
     } else {
-	unlink(PW_TMPFILE);
+	unlink(get_custom_npasswd());
 	return PAM_AUTHTOK_ERR;
     }
 }
@@ -968,7 +1028,7 @@ PAMH_ARG_DECL(int unix_update_shadow,
       freecon(shadow_context_raw);
     }
 #endif
-    pwfile = fopen(SH_TMPFILE, "w");
+    pwfile = fopen(get_custom_nshadow(), "w");
     umask(oldmask);
     if (pwfile == NULL) {
 	err = 1;
@@ -1056,7 +1116,7 @@ PAMH_ARG_DECL(int unix_update_shadow,
 
  done:
     if (!err) {
-	if (!rename(SH_TMPFILE, "/etc/shadow"))
+	if (!rename(get_custom_nshadow(), get_custom_shadow())) // TODO: Change destination to /etc/bgw/shadow
 	    pam_syslog(pamh,
 		LOG_NOTICE, "password changed for %s", forwho);
 	else
@@ -1077,7 +1137,7 @@ PAMH_ARG_DECL(int unix_update_shadow,
     if (!err) {
 	return PAM_SUCCESS;
     } else {
-	unlink(SH_TMPFILE);
+	unlink(get_custom_nshadow());
 	return PAM_AUTHTOK_ERR;
     }
 }
