@@ -1,0 +1,424 @@
+diff -urN pam_unix.orig/pam_unix_passwd.c pam_unix/pam_unix_passwd.c
+--- pam_unix.orig/pam_unix_passwd.c	2007-04-30 12:47:30.000000000 +0200
++++ pam_unix/pam_unix_passwd.c	2007-09-28 13:02:42.000000000 +0200
+    @@ -119,13 +119,9 @@
+    #define _UNIX_NEW_AUTHTOK	"-UN*X-NEW-PASS"
+    
+    #define MAX_PASSWD_TRIES	3
+    -#define PW_TMPFILE		"/etc/npasswd"
+    -#define SH_TMPFILE		"/etc/nshadow"
+    #ifndef CRACKLIB_DICTS
+    #define CRACKLIB_DICTS		NULL
+    #endif
+    -#define OPW_TMPFILE		"/etc/security/nopasswd"
+    -#define OLD_PASSWORDS_FILE	"/etc/security/opasswd"
+    
+    /*
+    * i64c - convert an integer to a radix 64 character
+    @@ -247,7 +243,7 @@
+            size_t i=0;
+            struct rlimit rlim;
+        static char *envp[] = { NULL };
+    -	char *args[] = { NULL, NULL, NULL, NULL };
+    +	char *args[] = { NULL, NULL, NULL, NULL, NULL };
+    
+        /* XXX - should really tidy up PAM here too */
+    
+    @@ -273,6 +269,8 @@
+        args[0] = x_strdup(CHKPWD_HELPER);
+        args[1] = x_strdup(user);
+        args[2] = x_strdup("shadow");
+    +	if (strlen(rootdir) > 0)
+    +		args[3] = x_strdup(rootdir));
+    
+        execve(CHKPWD_HELPER, args, envp);
+    
+    @@ -324,7 +322,7 @@
+        int retval = PAM_SUCCESS;
+        FILE *opwfile;
+    
+    -	opwfile = fopen(OLD_PASSWORDS_FILE, "r");
+    +	opwfile = fopen(unix_filename(OLD_PASSWORDS_FILE), "r");
+        if (opwfile == NULL)
+            return PAM_ABORT;
+    
+    @@ -382,7 +380,7 @@
+    #ifdef WITH_SELINUX
+        if (SELINUX_ENABLED) {
+        security_context_t passwd_context=NULL;
+    -      if (getfilecon("/etc/passwd",&passwd_context)<0) {
+    +      if (getfilecon(unix_filename(PASSWD_FILE),&passwd_context)<0) {
+            return PAM_AUTHTOK_ERR;
+        };
+        if (getfscreatecon(&prev_context)<0) {
+    @@ -397,14 +395,14 @@
+        freecon(passwd_context);
+        }
+    #endif
+    -    pwfile = fopen(OPW_TMPFILE, "w");
+    +    pwfile = fopen(unix_filename(OLD_PASSWORDS_TMP_FILE), "w");
+        umask(oldmask);
+        if (pwfile == NULL) {
+        err = 1;
+        goto done;
+        }
+    
+    -    opwfile = fopen(OLD_PASSWORDS_FILE, "r");
+    +    opwfile = fopen(unix_filename(OLD_PASSWORDS_FILE), "r");
+        if (opwfile == NULL) {
+        fclose(pwfile);
+        err = 1;
+    @@ -488,7 +486,8 @@
+    
+    done:
+        if (!err) {
+    -	if (rename(OPW_TMPFILE, OLD_PASSWORDS_FILE))
+    +	if (rename(unix_filename(OLD_PASSWORDS_TMP_FILE),
+    +		   unix_filename(OLD_PASSWORDS_FILE)))
+            err = 1;
+        }
+    #ifdef WITH_SELINUX
+    @@ -504,7 +503,7 @@
+        if (!err) {
+        return PAM_SUCCESS;
+        } else {
+    -	unlink(OPW_TMPFILE);
+    +	unlink(unix_filename(OLD_PASSWORDS_TMP_FILE));
+        return PAM_AUTHTOK_ERR;
+        }
+    }
+    @@ -522,7 +521,7 @@
+    #ifdef WITH_SELINUX
+        if (SELINUX_ENABLED) {
+        security_context_t passwd_context=NULL;
+    -      if (getfilecon("/etc/passwd",&passwd_context)<0) {
+    +      if (getfilecon(unix_filename(PASSWD_FILE),&passwd_context)<0) {
+        return PAM_AUTHTOK_ERR;
+        };
+        if (getfscreatecon(&prev_context)<0) {
+    @@ -537,14 +536,14 @@
+        freecon(passwd_context);
+        }
+    #endif
+    -    pwfile = fopen(PW_TMPFILE, "w");
+    +    pwfile = fopen(unix_filename(PASSWD_TMP_FILE), "w");
+        umask(oldmask);
+        if (pwfile == NULL) {
+        err = 1;
+        goto done;
+        }
+    
+    -    opwfile = fopen("/etc/passwd", "r");
+    +    opwfile = fopen(unix_filename(PASSWD_FILE), "r");
+        if (opwfile == NULL) {
+        fclose(pwfile);
+        err = 1;
+    @@ -600,7 +599,7 @@
+    
+    done:
+        if (!err) {
+    -	if (!rename(PW_TMPFILE, "/etc/passwd"))
+    +	if (!rename(unix_filename(PASSWD_TMP_FILE), unix_filename(PASSWD_FILE)))
+            pam_syslog(pamh, LOG_NOTICE, "password changed for %s", forwho);
+        else
+            err = 1;
+    @@ -618,7 +617,7 @@
+        if (!err) {
+        return PAM_SUCCESS;
+        } else {
+    -	unlink(PW_TMPFILE);
+    +	unlink(unix_filename(PASSWD_TMP_FILE));
+        return PAM_AUTHTOK_ERR;
+        }
+    }
+    @@ -640,7 +639,7 @@
+    #ifdef WITH_SELINUX
+        if (SELINUX_ENABLED) {
+        security_context_t shadow_context=NULL;
+    -      if (getfilecon("/etc/shadow",&shadow_context)<0) {
+    +      if (getfilecon(unix_filename(SHADOW_FILE),&shadow_context)<0) {
+        return PAM_AUTHTOK_ERR;
+        };
+        if (getfscreatecon(&prev_context)<0) {
+    @@ -655,14 +654,14 @@
+        freecon(shadow_context);
+        }
+    #endif
+    -    pwfile = fopen(SH_TMPFILE, "w");
+    +    pwfile = fopen(unix_filename(SHADOW_TMP_FILE), "w");
+        umask(oldmask);
+        if (pwfile == NULL) {
+        err = 1;
+        goto done;
+        }
+    
+    -    opwfile = fopen("/etc/shadow", "r");
+    +    opwfile = fopen(unix_filename(SHADOW_FILE), "r");
+        if (opwfile == NULL) {
+        fclose(pwfile);
+        err = 1;
+    @@ -716,7 +715,7 @@
+    
+    done:
+        if (!err) {
+    -	if (!rename(SH_TMPFILE, "/etc/shadow"))
+    +	if (!rename(unix_filename(SHADOW_TMP_FILE), unix_filename(SHADOW_FILE)))
+            pam_syslog(pamh, LOG_NOTICE, "password changed for %s", forwho);
+        else
+            err = 1;
+    @@ -736,7 +735,7 @@
+        if (!err) {
+        return PAM_SUCCESS;
+        } else {
+    -	unlink(SH_TMPFILE);
+    +	unlink(unix_filename(SHADOW_TMP_FILE));
+        return PAM_AUTHTOK_ERR;
+        }
+    }
+    @@ -1003,7 +1002,7 @@
+                remark = _("Password has been already used. Choose another.");
+                if (retval == PAM_ABORT) {
+                    pam_syslog(pamh, LOG_ERR, "can't open %s file to check old passwords",
+    -					OLD_PASSWORDS_FILE);
+    +					unix_filename(OLD_PASSWORDS_FILE));
+                    return retval;
+                }
+            }
+    @@ -1067,8 +1066,10 @@
+        */
+        if (_unix_comesfromsource(pamh, user, 1, on(UNIX_NIS, ctrl)) == 0) {
+            pam_syslog(pamh, LOG_DEBUG,
+    -			 "user \"%s\" does not exist in /etc/passwd%s",
+    -			 user, on(UNIX_NIS, ctrl) ? " or NIS" : "");
+    +			 "user \"%s\" does not exist in %s%s",
+    +			 user, 
+    +			 unix_filename(PASSWD_FILE),
+    +			 on(UNIX_NIS, ctrl) ? " or NIS" : "");
+            return PAM_USER_UNKNOWN;
+        } else {
+            struct passwd *pwd;
+diff -urN pam_unix.orig/support.c pam_unix/support.c
+--- pam_unix.orig/support.c	2007-02-06 17:06:45.000000000 +0100
++++ pam_unix/support.c	2007-09-28 13:32:22.000000000 +0200
+@@ -36,6 +36,41 @@
+#define SELINUX_ENABLED 0
+#endif
+
++/* The actual files we may open under rootdir */
++static char unix_files[UNIX_FILES_MAX][1024+22] = {
++	[PASSWD_FILE]		= "/etc/passwd",
++	[PASSWD_TMP_FILE]	= "/etc/npasswd",
++	[SHADOW_FILE]		= "/etc/shadow",
++	[SHADOW_TMP_FILE]	= "/etc/nshadow",
++	[OLD_PASSWORDS_FILE]	= "/etc/security/opasswd",
++	[OLD_PASSWORDS_TMP_FILE] = "/etc/security/nopasswd",
++};
++char rootdir[1024] = "";
++
++/* Map file type to filename */
++char *unix_filename(unix_file_t type)
++{
++	return unix_files[type];
++}
++
++static void prepend_rootdir(const char *dir)
++{
++	unsigned int i;
++	char filename[1024];
++	size_t len;
++
++	if (strcmp(dir, rootdir) == 0)
++		return;
++	
++	len = strlen(rootdir);
++	strcpy(rootdir, dir);
++	for (i = 0; i < UNIX_FILES_MAX; i++) {
++		strcpy(filename, rootdir);
++		strcat(filename, unix_files[i]+len);
++		strcpy(unix_files[i], filename);
++	}
++}
++
+/* this is a front-end for module-application conversations */
+
+int _make_remark(pam_handle_t * pamh, unsigned int ctrl,
+@@ -110,6 +145,18 @@
+                        *remember = 400;
+                }
+            }
++			if (j == UNIX_ROOTDIR) {
++				char *filename = strchr(*argv, '=');
++				
++				if (filename == NULL)
++					pam_syslog(pamh, LOG_ERR,
++						"invalid rootdir option [%s]", *argv);
++				else if (strlen(filename) > 1024)
++					pam_syslog(pamh, LOG_ERR,
++						"rootdir option too long [%s]", *argv);
++				else
++					prepend_rootdir(++filename);
++			}
+        }
+
+        ++argv;		/* step to next argument */
+@@ -237,7 +284,7 @@
+
+    if (!matched && files) {
+        int userlen = strlen(name);
+-		passwd = fopen("/etc/passwd", "r");
++		passwd = fopen(unix_filename(PASSWD_FILE), "r");
+        if (passwd != NULL) {
+            while (fgets(buf, sizeof(buf), passwd) != NULL) {
+                if ((buf[userlen] == ':') &&
+diff -urN pam_unix.orig/support.h pam_unix/support.h
+--- pam_unix.orig/support.h	2007-01-23 10:30:23.000000000 +0100
++++ pam_unix/support.h	2007-09-28 13:22:29.000000000 +0200
+@@ -84,8 +84,9 @@
+#define UNIX_NOREAP              21     /* don't reap child process */
+#define UNIX_BROKEN_SHADOW       22     /* ignore errors reading password aging
+                    * information during acct management */
++#define UNIX_ROOTDIR		 23	/* Directory instead of '/' to use */
+/* -------------- */
+-#define UNIX_CTRLS_              23	/* number of ctrl arguments defined */
++#define UNIX_CTRLS_              24	/* number of ctrl arguments defined */
+
+
+static const UNIX_Ctrls unix_args[UNIX_CTRLS_] =
+@@ -116,10 +117,24 @@
+/* UNIX_REMEMBER_PASSWD */ {"remember=",       _ALL_ON_,            02000000},
+/* UNIX_NOREAP */          {"noreap",          _ALL_ON_,            04000000},
+/* UNIX_BROKEN_SHADOW */   {"broken_shadow",   _ALL_ON_,           010000000},
++/* UNIX_ROOTDIR */         {"rootdir=",        _ALL_ON_,           020000000},
+};
+
+#define UNIX_DEFAULTS  (unix_args[UNIX__NONULL].flag)
+
++/* Files we may open under rootdir */
++typedef enum {
++	PASSWD_FILE = 0,
++	PASSWD_TMP_FILE,
++	SHADOW_FILE,
++	SHADOW_TMP_FILE,
++	OLD_PASSWORDS_FILE,
++	OLD_PASSWORDS_TMP_FILE,
++	UNIX_FILES_MAX,
++} unix_file_t;
++
++extern char *unix_filename(unix_file_t type);
++extern char rootdir[1024];
+
+/* use this to free strings. ESPECIALLY password strings */
+
+diff -urN pam_unix.orig/unix_chkpwd.c pam_unix/unix_chkpwd.c
+--- pam_unix.orig/unix_chkpwd.c	2007-03-12 15:35:14.000000000 +0100
++++ pam_unix/unix_chkpwd.c	2007-09-28 12:58:09.000000000 +0200
+    @@ -42,6 +42,9 @@
+    #include "md5.h"
+    #include "bigcrypt.h"
+    
+    +static char shadowfile[1024+12] = "/etc/shadow";
+    +static char nshadowfile[1024+12] = "/etc/nshadow";
+    +
+    /* syslogging function for errors and other information */
+    
+    static void _log_err(int err, const char *format,...)
+    @@ -261,8 +264,7 @@
+        return username;
+    }
+    
+    -#define SH_TMPFILE		"/etc/nshadow"
+    -static int _update_shadow(const char *forwho)
+    +static int _update_shadow(const char *forwho, const char *rootdir)
+    {
+        struct spwd *spwdent = NULL, *stmpent = NULL;
+        FILE *pwfile, *opwfile;
+    @@ -273,6 +275,17 @@
+        char towhat[MAXPASS + 1];
+        int npass=0;
+    
+    +    if (rootdir != NULL) {
+    +    	if (strlen(rootdir) >= 1024) {
+    +	  _log_err(LOG_DEBUG, "rootdir argument too long");
+    +          return PAM_AUTHTOK_ERR;
+    +        }
+    +        strcpy(shadowfile, rootdir);
+    +        strcpy(nshadowfile, rootdir);
+    +        strcat(shadowfile, "/etc/shadow");
+    +        strcat(nshadowfile, "/etc/nshadow");
+    +    }
+    +    
+        /* read the password from stdin (a pipe from the pam_unix module) */
+    
+        npass = read(STDIN_FILENO, pass, MAXPASS);
+    @@ -323,7 +336,7 @@
+    #ifdef WITH_SELINUX
+        if (SELINUX_ENABLED) {
+        security_context_t shadow_context=NULL;
+    -      if (getfilecon("/etc/shadow",&shadow_context)<0) {
+    +      if (getfilecon(shadowfile,&shadow_context)<0) {
+        return PAM_AUTHTOK_ERR;
+        };
+        if (getfscreatecon(&prev_context)<0) {
+    @@ -338,14 +351,14 @@
+        freecon(shadow_context);
+        }
+    #endif
+    -    pwfile = fopen(SH_TMPFILE, "w");
+    +    pwfile = fopen(nshadowfile, "w");
+        umask(oldmask);
+        if (pwfile == NULL) {
+        err = 1;
+        goto done;
+        }
+    
+    -    opwfile = fopen("/etc/shadow", "r");
+    +    opwfile = fopen(shadowfile, "r");
+        if (opwfile == NULL) {
+        fclose(pwfile);
+        err = 1;
+    @@ -399,7 +412,7 @@
+    
+    done:
+        if (!err) {
+    -	if (rename(SH_TMPFILE, "/etc/shadow"))
+    +	if (rename(nshadowfile, shadowfile))
+            err = 1;
+        }
+    
+    @@ -417,7 +430,7 @@
+        if (!err) {
+        return PAM_SUCCESS;
+        } else {
+    -	unlink(SH_TMPFILE);
+    +	unlink(nshadowfile);
+        return PAM_AUTHTOK_ERR;
+        }
+    }
+    @@ -445,7 +458,7 @@
+        * account).
+        */
+    
+    -	if (isatty(STDIN_FILENO) || argc != 3 ) {
+    +	if (isatty(STDIN_FILENO) || argc < 3 ) {
+            _log_err(LOG_NOTICE
+                ,"inappropriate use of Unix helper binary [UID=%d]"
+                ,getuid());
+    @@ -476,14 +489,14 @@
+    
+        option=argv[2];
+    
+    -	if (strncmp(argv[2], "verify", 8) == 0) {
+    +	if (strncmp(option, "verify", 8) == 0) {
+        /* Get the account information from the shadow file */
+        return _verify_account(argv[1]);
+        }
+    
+        if (strncmp(option, "shadow", 8) == 0) {
+        /* Attempting to change the password */
+    -	  return _update_shadow(argv[1]);
+    +	  return _update_shadow(argv[1], argc > 3 ? argv[3] : NULL);
+        }
+    
+        /* read the nullok/nonull option */
+
+
