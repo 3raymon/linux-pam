@@ -164,20 +164,19 @@ unsigned long long _set_ctrl(pam_handle_t *pamh, int flags, int *remember,
 				fclose(fp);
 				} else {
 				pam_syslog(pamh, LOG_ERR,
-					"failed to open custom_shadow_path=[%s]", str);
+					"failed to open shadow_path=[%s]", str);
 				continue;
 				}
 
-				// Add custom_shadow_path=<CUSTOM_SHADOW_PATH> to env
-				const char* env = strcat("custom_shadow_path=", str);
-
-				if (putenv(env) == 0) {
-					pam_syslog(pamh, LOG_INFO, "added %s to env", env);
-				} else {
+				if (strlen(str) > 1024) {
 					pam_syslog(pamh, LOG_ERR,
-						"failed to export custom_shadow_path=[%s]", str);
+						"shadow_path too long [%s]", str);
 					continue;
 				}
+
+				// Add shadow_path to global var
+				strcpy(shadow_path, str);
+
 			} else if (j == CUSTOM_PASSWD_PATH) {
 				// checks if str is a valid file
 				FILE *fp = fopen(str, "r");
@@ -186,20 +185,18 @@ unsigned long long _set_ctrl(pam_handle_t *pamh, int flags, int *remember,
 				fclose(fp);
 				} else {
 				pam_syslog(pamh, LOG_ERR,
-					"failed to open custom_passwd_path=[%s]", str);
+					"failed to open passwd_path=[%s]", str);
 				continue;
 				}
 
-				// Add custom_shadow_path=<CUSTOM_SHADOW_PATH> to env
-				const char* env = strcat("custom_passwd_path=", str);
-
-				if (putenv(env) == 0) {
-					pam_syslog(pamh, LOG_INFO, "added %s to env", env);
-				} else {
+				if (strlen(str) > 1024) {
 					pam_syslog(pamh, LOG_ERR,
-						"failed to export custom_passwd_path=[%s]", str);
+						"passwd_path too long [%s]", str);
 					continue;
 				}
+
+				// Add passwd_path to global var
+				strcpy(passwd_path, str);
 			}
 
 			ctrl &= unix_args[j].mask;	/* for turning things off */

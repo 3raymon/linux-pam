@@ -6,8 +6,6 @@
 #include <security/pam_modules.h>
 #include "support.h"
 #include <stdio.h>
-#include <stdlib.h>
-#include <libgen.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -339,8 +337,8 @@ PAMH_ARG_DECL(int check_shadow_expiry,
 
 /* passwd/salt conversion macros */
 /*
-PW_TMPFILE is just used if env custom_passwd_path is not set,
-SH_TMPFILE is just used if env custom_shadow_path is not set
+PW_TMPFILE is just used if env passwd_path is not set,
+SH_TMPFILE is just used if env shadow_path is not set
 */
 #define PW_TMPFILE              "/etc/npasswd"
 #define SH_TMPFILE              "/etc/nshadow"
@@ -354,49 +352,45 @@ SH_TMPFILE is just used if env custom_shadow_path is not set
  */
 const char* get_custom_shadow(void)
 {
-	char* p_string= getenv("custom_shadow_path");
-	if (p_string != NULL) {
-		return p_string;
+	if (strlen(shadow_path) > 0) {
+		return shadow_path;
 	} else {
-		return "/etc/shadow"
+		return "/etc/shadow";
 	}
 }
 
 const char* get_custom_nshadow(void)
 {
-	char* p_string= getenv("custom_shadow_path");
-	if (fp != NULL) {
-		char* dir = dirname(p_string);
-		char* base = basename(p_string);
+	if (strlen(shadow_path) > 0) {
+		char* dir = dirname(shadow_path);
+		char* base = basename(shadow_path);
 		strcat(dir, "/n");
 		strcat(dir, base);
 		return dir;
 	} else {
-		return SH_TMPFILE
+		return SH_TMPFILE;
 	}
 }
 
 const char* get_custom_passwd(void)
 {
-	char* p_string= getenv("custom_passwd_path");
-	if (p_string != NULL) {
-		return p_string;
+	if (strlen(passwd_path) > 0) {
+		return passwd_path;
 	} else {
-		return "/etc/passwd"
+		return "/etc/passwd";
 	}
 }
 
 const char* get_custom_npasswd(void)
 {
-	char* p_string= getenv("custom_passwd_path");
-	if (p_string != NULL) {
-		char* dir = dirname(p_string);
-		char* base = basename(p_string);
+	if (strlen(passwd_path) > 0) {
+		char* dir = dirname(passwd_path);
+		char* base = basename(passwd_path);
 		strcat(dir, "/n");
 		strcat(dir, base);
 		return dir;
 	} else {
-		return PW_TMPFILE
+		return PW_TMPFILE;
 	}
 }
 
